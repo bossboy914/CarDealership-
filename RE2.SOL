@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+// Import the OpenZeppelin library for access control
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract RealEstate is Ownable {
+    enum PropertyStatus { ForSale, Mortgaged, Rented }
+
+    struct Property {
+        address owner;
+        uint256 price;
+        string location;
+        string description;
+        uint256 area;
+        PropertyStatus status;
+        string legalDocuments;
+        address[] ownershipHistory;
+        bool isInspected;
+        bool isViewed;
+        bool isUsed;
+    }
+
+    // Mapping to store property information
+    mapping(string => Property) public properties;
+
+    // Mapping to store authorized addresses for access control
+    mapping(address => bool) private authorizedAccess;
+
+    // Events to log property actions
+    event PropertyOwnershipTransferred(string location, address indexed from, address indexed to);
+    event PropertyStatusChanged(string location, PropertyStatus status);
+
+    // Modifier to check if the caller is the property owner or an authorized address
+    modifier onlyPropertyOwnerOrAuthorized(string memory location) {
+        require(properties[location].owner == msg.sender || authorizedAccess[msg.sender], "Unauthorized access.");
+        _;
+    }
+
+    // Function to register a new property on the blockchain platform
+    function registerProperty(
+        string memory location,
+        uint256 price,
+        string memory description,
+        uint256 area,
+        bool isUsed,
+        string memory legalDocuments
+    ) public onlyAuthorized {
+        require(properties[location].owner == address(0), "Property with this location already exists.");
+
+        properties[location] = Property({
+            owner: msg.sender,
+            price: price,
+            location: location,
+            description: description,
+            area: area,
+            status: PropertyStatus.ForSale,
+            legalDocuments: legalDocuments,
+            ownershipHistory: new address[](0),
+            isInspected: false,
+            isViewed: false,
+            isUsed: isUsed
+        });
+    }
+
+    // Function to add property inspection details
+    function addInspectionDetails(string memory location, bool isInspected) public onlyPropertyOwnerOrAuthorized(location) {
+        properties[location].isInspected = isInspected;
+    }
+
+    // Function to add property viewing details
+    function addViewingDetails(string memory location, bool isViewed) public onlyPropertyOwnerOrAuthorized(location) {
+        properties[location].isViewed = isViewed;
+    }
+
+    // Function to add property ownership transfer history
+    function addOwnershipTransferHistory(string memory location, address newOwner) public onlyPropertyOwnerOrAuthorized(location) {
+        properties[location].ownershipHistory.push(properties[location].owner);
+        properties[location].owner = newOwner;
+
+        emit PropertyOwnershipTransferred(location, msg.sender, newOwner);
+    }
+
+    // Function to add legal documents related to the property
+    function addLegalDocuments(string memory location, string memory documents) public onlyPropertyOwnerOrAuthorized(location) {
+        properties[location].legalDocuments = documents;
+    }
+
+    // Function to change the status of the property (e.g., For Sale, Mortgaged, Rented)
+    function changePropertyStatus(string memory location, PropertyStatus status) public onlyPropertyOwnerOrAuthorized(location) {
+        properties[location].status = status;
+
+        emit PropertyStatusChanged(location, status);
+    }
+
+    // Function to get property details and history
+    function getPropertyDetails(string memory location) public view returns (
+        address owner,
+        uint256 price,
+        string memory description,
+        uint256 area,
+        PropertyStatus status,
+        string memory legalDocuments,
+        address[] memory ownershipHistory,
+        bool isInspected,
+        bool isViewed,
+        bool isUsed
+    ) {
+        Property memory property = properties[location];
+        return (
+            property.owner,
+            property.price,
+            property.description,
+            property.area,
+            property.status,
+            property.legalDocuments,
+            property.ownershipHistory,
+            property.isInspected,
+            property.isViewed,
+            property.isUsed
+        );
+    }
+
+    // Function to authorize access for specific addresses
+    function authorizeAccess(address authorizedAddress) public onlyOwner {
+        authorizedAccess[authorizedAddress] = true;
+    }
+
+    // Function to revoke access for specific addresses
+    function revokeAccess(address unauthorizedAddress) public onlyOwner {
+        authorizedAccess[unauthorizedAddress] = false;
+    }
+}
